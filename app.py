@@ -4,6 +4,8 @@ import dash_table_experiments as dt
 import numpy as np
 import pymongo
 
+from bson.objectid import ObjectId
+
 import base64
 from glob import glob
 from dash.dependencies import Input, Output
@@ -14,16 +16,16 @@ from utils import *
 client = pymongo.MongoClient('drunk:27017')
 app = dash.Dash()
 
-external_css = [
-    "https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css",  # Normalize the CSS
-    "https://fonts.googleapis.com/css?family=Open+Sans|Roboto"  # Fonts
-    "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css",
-    "https://cdn.rawgit.com/xhlulu/0acba79000a3fd1e6f552ed82edb8a64/raw/dash_template.css",
-    "https://rawgit.com/plotly/dash-live-model-training/master/custom_styles.css"
-]
+# external_css = [
+#     "https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css",  # Normalize the CSS
+#     "https://fonts.googleapis.com/css?family=Open+Sans|Roboto"  # Fonts
+#     "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css",
+#     "https://cdn.rawgit.com/xhlulu/0acba79000a3fd1e6f552ed82edb8a64/raw/dash_template.css",
+#     "https://rawgit.com/plotly/dash-live-model-training/master/custom_styles.css"
+# ]
 
-for css in external_css:
-    app.css.append_css({"external_url": css})
+# for css in external_css:
+#     app.css.append_css({"external_url": css})
 
 dbl = client.list_database_names()
 database_list = []
@@ -113,6 +115,13 @@ app.layout = html.Div([
                         id='expe_list_curve',
                         placeholder="select experiments",
                         multi=False,
+                        clearable=True,
+                    ),
+                     dcc.Dropdown(
+                        id='metric_list_curve',
+                        placeholder="select metrics",
+                        multi=False,
+                        value='loss_MSE',
                         clearable=True,
                     ),
                 ]),
@@ -206,6 +215,7 @@ def update_scrolldown(value):
     c = []
     for i in l:
         c.append({'label': i, 'value': i})
+
     return c
 
 
@@ -247,7 +257,7 @@ def update_table(expe_name, value, completed, range_res):
     return df.to_dict('records')
 
 
-#### TAB HYPERPARAMATERS
+# TAB HYPERPARAMATERS
 
 
 @app.callback(Output('config', 'options'),
@@ -270,7 +280,7 @@ def update_config_name(expe_name, float_or_box, value, completed, range_res):
         if df[i].dtype == np.bool or df[i].dtype == np.object_ and float_or_box == 'box':
             val = i[7:]
             l_hyper.append({'label': val, 'value': i}, )
-        if df[i].dtype == np.float and i is not 'result' and float_or_box == 'scatter':
+        if (df[i].dtype == np.float or df[i].dtype == np.int) and i is not 'result' and float_or_box == 'scatter':
             val = i[7:]
             l_hyper.append({'label': val, 'value': i}, )
 
@@ -320,7 +330,7 @@ def update_config_plot(box_value, float_or_box, expe_name, value, completed, ran
     return g
 
 
-#### TAB CURVE
+# TAB CURVE
 
 @app.callback(Output('expe_list_curve', 'options'),
               [Input('expe', 'value'),
@@ -347,7 +357,32 @@ def update_expe_list_curve(expe_name, value, completed, range_res):
 
     return l_retour
 
-from bson.objectid import ObjectId
+
+@app.callback(Output('metric_list_curve', 'options'),
+              [
+               Input('expe_list_curve', 'value'),
+               Input('expe', 'value'),
+               Input('database', 'value'),
+               Input('checklist', 'values'),
+               Input('range', 'value')])
+def update_metrics_list_curve(expe_id, expe_name, value, completed, range_res):
+    db = client[value]
+    filtre = {'experiment.name': {'$in': expe_name}}
+    filtre['status'] = {'$in': completed}
+    filtre['result'] = {'$lt': range_res}
+    filtre['_id'] = expe_id
+
+    if db.runs.find(filtre).count() == 0:
+      return
+
+    for l in db.runs.find(filtre):
+        metrics = l['info']['metrics']
+
+    list_metric_name = []
+    for m in metrics:
+      list_metric_name.append(m['name'].split('/')[1])
+    list_metric_name = np.unique(list_metric_name)
+    return [{'label': i, 'value':i} for i in list_metric_name]
 
 
 @app.callback(Output('run-log-storage', 'children'),
@@ -356,14 +391,17 @@ from bson.objectid import ObjectId
                Input('expe', 'value'),
                Input('database', 'value'),
                Input('checklist', 'values'),
-               Input('range', 'value')])
+               Input('range', 'value'),])
 def get_run_log(expe_id, expe_name, value, completed, range_res):
-    names = ['step', 'train accuracy', 'val accuracy', 'train cross entropy', 'val cross entropy']
     db = client[value]
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
     filtre['_id'] = expe_id
+
+    if db.runs.find(filtre).count() == 0:
+      return
+
     for l in db.runs.find(filtre):
         metrics = l['info']['metrics']
 
@@ -390,20 +428,22 @@ def get_run_log(expe_id, expe_name, value, completed, range_res):
               [Input('run-log-storage', 'children'),
                Input('radio-display-mode-jojo', 'value'),
                Input('checklist-smoothing-options-jojo', 'values'),
-               Input('slider-smoothing-jojo', 'value')])
+               Input('slider-smoothing-jojo', 'value'),
+               Input('metric_list_curve', 'value')])
 def update_accuracy_graph(log_storage, display_mode,
                           checklist_smoothing_options,
-                          slider_smoothing):
+                          slider_smoothing,
+                          metric_name):
 
     graph = update_graph('accuracy-graph',
-                         'Prediction MSE',
-                         'meters/loss_MSE/train',
-                         'meters/loss_MSE/test',
+                         metric_name,
+                         'meters/'+metric_name+'/train',
+                         'meters/'+metric_name+'/test',
                          log_storage,
                          display_mode,
                          checklist_smoothing_options,
                          slider_smoothing,
-                         'MSE')
+                         metric_name)
 
     try:
         if display_mode in ['separate_horizontal', 'overlap']:
@@ -417,7 +457,7 @@ def update_accuracy_graph(log_storage, display_mode,
 
     return [graph]
 
-##### IMAGE TAB
+# IMAGE TAB
 
 
 @app.callback(Output('expe_list_image', 'options'),
@@ -459,6 +499,9 @@ def update_expe_list_image(expe_name, value, completed, range_res):
                   Input('train_or_test', 'value')
               ])
 def update_image_slider(expe_name, value, completed, range_res, id, train_or_test):
+    if id is None:
+      return 
+
     db = client[value]
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
@@ -470,11 +513,21 @@ def update_image_slider(expe_name, value, completed, range_res, id, train_or_tes
                                                          "info.exp_dir": True,
                                                          }, include_index=True,
                      prune=False).sort_values('result')
+
+
     folder = df[df['_id'] == id]['info.exp_dir'].values[0]
     if train_or_test == 'test':
         length = len(glob(folder + "/test*"))
+        if length == 0:
+          folder = folder.replace('big', 'gogos')
+          length = len(glob(folder + "/test*"))
+
     elif train_or_test == 'train':
         length = len(glob(folder + "/train*"))
+        if length == 0:
+          folder = folder.replace('big', 'gogos')
+          length = len(glob(folder + "/train*"))
+
     else:
         length = 0
 
@@ -492,8 +545,12 @@ def update_image_slider(expe_name, value, completed, range_res, id, train_or_tes
                   Input('train_or_test', 'value')
               ])
 def update_image(expe_name, value, completed, range_res, id, slider_num, train_or_test):
+
+    if id is None:
+      return
+
     db = client[value]
-    print(slider_num)
+
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
@@ -508,13 +565,26 @@ def update_image(expe_name, value, completed, range_res, id, slider_num, train_o
 
     folder = df[df['_id'] == id]['info.exp_dir'].values[0]
     if train_or_test == 'test':
+        length = len(glob(folder + "/test*"))
         list_img = glob(folder+"/test*")
+        if length == 0:
+          folder = folder.replace('big', 'gogos')
+          length = len(glob(folder + "/test*"))
+          list_img = glob(folder+"/test*")
+
+
     elif train_or_test == 'train':
+        length = len(glob(folder + "/train*"))
         list_img = glob(folder+"/train*")
+        if length == 0:
+          folder = folder.replace('big', 'gogos')
+          length = len(glob(folder + "/train*"))
+          list_img = glob(folder+"/train*")    
     else:
         list_img = []
 
     if len(list_img) > 0:
+        list_img = sorted_nicely(list_img)
         encoded_image = base64.b64encode(open(list_img[slider_num], 'rb').read()).decode('utf-8').replace('\n', '')
         return 'data:image/png;base64,{}'.format(encoded_image)
     else:
