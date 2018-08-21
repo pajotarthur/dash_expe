@@ -97,12 +97,12 @@ def cat_to_boxplot(df, cat):
 
 
 def float_to_scatter(df, cat):
-
         trace_scatter_back = go.Scatter(
             y=df.result,
             x=df[cat],
             mode='markers',
             name=cat,
+            text='id: ' + df._id.astype('str'),
         )
         layout= go.Layout(
         title= str(cat) + ' / result',
