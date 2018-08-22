@@ -16,16 +16,16 @@ from utils import *
 client = pymongo.MongoClient('drunk:27017')
 app = dash.Dash()
 
-# external_css = [
-#     "https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css",  # Normalize the CSS
-#     "https://fonts.googleapis.com/css?family=Open+Sans|Roboto"  # Fonts
-#     "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css",
-#     "https://cdn.rawgit.com/xhlulu/0acba79000a3fd1e6f552ed82edb8a64/raw/dash_template.css",
-#     "https://rawgit.com/plotly/dash-live-model-training/master/custom_styles.css"
-# ]
+external_css = [
+    "https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css",  # Normalize the CSS
+    "https://fonts.googleapis.com/css?family=Open+Sans|Roboto"  # Fonts
+    "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css",
+    "https://cdn.rawgit.com/xhlulu/0acba79000a3fd1e6f552ed82edb8a64/raw/dash_template.css",
+    "https://rawgit.com/plotly/dash-live-model-training/master/custom_styles.css"
+]
 
-# for css in external_css:
-#     app.css.append_css({"external_url": css})
+for css in external_css:
+    app.css.append_css({"external_url": css})
 
 dbl = client.list_database_names()
 database_list = []
@@ -195,7 +195,6 @@ app.layout = html.Div([
     [Input('database', 'value')])
 def update_output(value):
     db = client[value]
-
     db_stat = db.command("dbstats")
     retour = "{} num_object : {} avgObjSize : {} datasize : {}".format(
         db_stat['db'],
@@ -204,7 +203,6 @@ def update_output(value):
         convert_size(db_stat['dataSize']),
     )
     return retour
-
 
 @app.callback(
     Output('expe', 'options'),
@@ -215,9 +213,7 @@ def update_scrolldown(value):
     c = []
     for i in l:
         c.append({'label': i, 'value': i})
-
     return c
-
 
 @app.callback(
     Output('range_value', 'children'),
@@ -225,12 +221,6 @@ def update_scrolldown(value):
 def range_value(value):
     return "max : " + str(value)
 
-
-@app.callback(
-    Output('img_number', 'children'),
-    [Input('slider_img', 'value')])
-def range_value(value):
-    return "img : " + str(value)
 
 @app.callback(Output('table', 'rows'),
               [Input('expe', 'value'),
@@ -242,24 +232,28 @@ def update_table(expe_name, value, completed, range_res):
     For user selections, return the relevant table
     """
     db = client[value]
-
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
 
-    df = get_results(db.runs, project={'start_time': True,
-                                       "status": True,
-                                       "host.hostname": True,
-                                       "experiment.name": True
-                                       },
-                     filter_by=filtre, include_index=True, prune=False)
+    if expe_name is not None:
+        if db.runs.find(filtre).count() == 0:
+            df = pd.DataFrame({'_id': [00], 'result': [10000], 'start_time': ['2018-07-02 09:58:15.077000'], 'status': ['FAILED'], 'experiment.name': ['NO EXPERIMENT'], 'host.hostname': ['NONE']})
+            return df.to_dict('records')
+
+        df = get_results(db.runs, project={'start_time': True,
+                                           "status": True,
+                                           "host.hostname": True,
+                                           "experiment.name": True
+                                           },
+                         filter_by=filtre, include_index=True, prune=False)
+    else:
+        df = pd.DataFrame({'A' : []})
 
     return df.to_dict('records')
 
-
+#
 # TAB HYPERPARAMATERS
-
-
 @app.callback(Output('config', 'options'),
               [
                   Input('expe', 'value'),
@@ -273,16 +267,18 @@ def update_config_name(expe_name, float_or_box, value, completed, range_res):
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
-    df = get_results(db.runs, filter_by=filtre, include_index=True)
     l_hyper = []
+    if expe_name is not None:
+        if db.runs.find(filtre).count() > 0:
+            df = get_results(db.runs, filter_by=filtre, include_index=True)
 
-    for i in df.columns:
-        if df[i].dtype == np.bool or df[i].dtype == np.object_ and float_or_box == 'box':
-            val = i[7:]
-            l_hyper.append({'label': val, 'value': i}, )
-        if (df[i].dtype == np.float or df[i].dtype == np.int) and i is not 'result' and float_or_box == 'scatter':
-            val = i[7:]
-            l_hyper.append({'label': val, 'value': i}, )
+            for i in df.columns:
+                if df[i].dtype == np.bool or df[i].dtype == np.object_ and float_or_box == 'box':
+                    val = i[7:]
+                    l_hyper.append({'label': val, 'value': i}, )
+                if (df[i].dtype == np.float or df[i].dtype == np.int) and i is not 'result' and float_or_box == 'scatter':
+                    val = i[7:]
+                    l_hyper.append({'label': val, 'value': i}, )
 
     if len(l_hyper) == 0:
         if float_or_box == 'box':
@@ -307,6 +303,10 @@ def update_config_plot(box_value, float_or_box, expe_name, value, completed, ran
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
+    if expe_name is None:
+        return
+    if db.runs.find(filtre).count() == 0:
+      return
     df = get_results(db.runs, filter_by=filtre, include_index=True)
 
     data = []
@@ -328,9 +328,9 @@ def update_config_plot(box_value, float_or_box, expe_name, value, completed, ran
     g = dcc.Graph(figure=fig, id='coco_lasticot')
 
     return g
-
-
-# TAB CURVE
+#
+#
+# # TAB CURVE
 
 @app.callback(Output('expe_list_curve', 'options'),
               [Input('expe', 'value'),
@@ -343,17 +343,22 @@ def update_expe_list_curve(expe_name, value, completed, range_res):
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
-    df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
-                                                         "status": True,
-                                                         "host.hostname": True,
-                                                         "experiment.name": True
-                                                         }, include_index=True, prune=False)
     l_retour = []
-    for row in df.iterrows():
-        l_retour.append({'label': "{}_{}_{}".format(row[1]["_id"],
-                                                    row[1]["result"],
-                                                    row[1]["experiment.name"]),
-                         'value': row[1]["_id"]})
+
+    if expe_name is not None:
+        if db.runs.find(filtre).count() > 0:
+
+            df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
+                                                                 "status": True,
+                                                                 "host.hostname": True,
+                                                                 "experiment.name": True
+                                                                 }, include_index=True, prune=False)
+            for row in df.iterrows():
+                l_retour.append({'label': "{}_{}_{}".format(row[1]["_id"],
+                                                            row[1]["result"],
+                                                            row[1]["experiment.name"]),
+                                 'value': row[1]["_id"]})
+
 
     return l_retour
 
@@ -371,17 +376,20 @@ def update_metrics_list_curve(expe_id, expe_name, value, completed, range_res):
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
     filtre['_id'] = expe_id
-
-    if db.runs.find(filtre).count() == 0:
-      return
-
-    for l in db.runs.find(filtre):
-        metrics = l['info']['metrics']
-
     list_metric_name = []
-    for m in metrics:
-      list_metric_name.append(m['name'].split('/')[1])
-    list_metric_name = np.unique(list_metric_name)
+
+    if expe_name is not None:
+        if db.runs.find(filtre).count() > 0:
+
+            for l in db.runs.find(filtre):
+                metrics = l['info']['metrics']
+
+            for m in metrics:
+              list_metric_name.append(m['name'].split('/')[1])
+            list_metric_name = np.unique(list_metric_name)
+        else:
+            list_metric_name = ['no metrics']
+
     return [{'label': i, 'value':i} for i in list_metric_name]
 
 
@@ -398,28 +406,29 @@ def get_run_log(expe_id, expe_name, value, completed, range_res):
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
     filtre['_id'] = expe_id
+    json = ''
+    if expe_name is not None:
+        if db.runs.find(filtre).count() == 0:
+          return
 
-    if db.runs.find(filtre).count() == 0:
-      return
-
-    for l in db.runs.find(filtre):
-        metrics = l['info']['metrics']
+        for l in db.runs.find(filtre):
+            metrics = l['info']['metrics']
 
 
-    df_dict = {}
-    for i in metrics:
-        n = i['name']
-        for kk in db.metrics.find({'_id': ObjectId(i['id'])}):
-            v = kk['values']
-        df_dict[n] = v
-        df_dict['step'] = kk['steps']
-    run_log_df = pd.DataFrame(df_dict)
-    try:
-        json = run_log_df.to_json(orient='split')
-    except FileNotFoundError as error:
-        print(error)
-        print("Please verify if the csv file generated by your model is placed in the correct directory.")
-        return None
+        df_dict = {}
+        for i in metrics:
+            n = i['name']
+            for kk in db.metrics.find({'_id': ObjectId(i['id'])}):
+                v = kk['values']
+            df_dict[n] = v
+            df_dict['step'] = kk['steps']
+        run_log_df = pd.DataFrame(df_dict)
+        try:
+            json = run_log_df.to_json(orient='split')
+        except FileNotFoundError as error:
+            print(error)
+            print("Please verify if the csv file generated by your model is placed in the correct directory.")
+            return None
 
     return json
 
@@ -456,8 +465,15 @@ def update_accuracy_graph(log_storage, display_mode,
         pass
 
     return [graph]
-
-# IMAGE TAB
+#
+# # IMAGE TAB
+#
+#
+@app.callback(
+    Output('img_number', 'children'),
+    [Input('slider_img', 'value')])
+def range_value(value):
+    return "img : " + str(value)
 
 
 @app.callback(Output('expe_list_image', 'options'),
@@ -473,20 +489,25 @@ def update_expe_list_image(expe_name, value, completed, range_res):
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
-    df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
-                                                         "status": True,
-                                                         "host.hostname": True,
-                                                         "experiment.name": True
-                                                         }, include_index=True,
-                     prune=False).sort_values('result')
     l_retour = []
-    for row in df.iterrows():
-        l_retour.append({'label': "{}_{}_{}".format(row[1]["_id"],
-                                                    row[1]["result"],
-                                                    row[1]["experiment.name"]),
-                         'value': row[1]["_id"]})
+
+    if expe_name is not None:
+        if db.runs.find(filtre).count() > 0:
+
+            df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
+                                                                 "status": True,
+                                                                 "host.hostname": True,
+                                                                 "experiment.name": True
+                                                                 }, include_index=True, prune=False)
+            for row in df.iterrows():
+                l_retour.append({'label': "{}_{}_{}".format(row[1]["_id"],
+                                                            row[1]["result"],
+                                                            row[1]["experiment.name"]),
+                                 'value': row[1]["_id"]})
+
 
     return l_retour
+
 
 
 @app.callback(Output('slider_img', 'max'),
@@ -500,36 +521,40 @@ def update_expe_list_image(expe_name, value, completed, range_res):
               ])
 def update_image_slider(expe_name, value, completed, range_res, id, train_or_test):
     if id is None:
-      return 
+      return
 
     db = client[value]
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
-    df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
-                                                         "status": True,
-                                                         "host.hostname": True,
-                                                         "experiment.name": True,
-                                                         "info.exp_dir": True,
-                                                         }, include_index=True,
-                     prune=False).sort_values('result')
+    length = 0
+    if expe_name is not None:
+        if db.runs.find(filtre).count() > 0:
+            df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
+                                                                 "status": True,
+                                                                 "host.hostname": True,
+                                                                 "experiment.name": True,
+                                                                 "info.exp_dir": True,
+                                                                 }, include_index=True,
+                             prune=False).sort_values('result')
 
+            folder = df[df['_id'] == id]['info.exp_dir'].values[0]
+            if folder is None:
+                return 0
+            if train_or_test == 'test':
+                length = len(glob(folder + "/test*"))
+                if length == 0:
+                  folder = folder.replace('big', 'gogos')
+                  length = len(glob(folder + "/test*"))
 
-    folder = df[df['_id'] == id]['info.exp_dir'].values[0]
-    if train_or_test == 'test':
-        length = len(glob(folder + "/test*"))
-        if length == 0:
-          folder = folder.replace('big', 'gogos')
-          length = len(glob(folder + "/test*"))
+            elif train_or_test == 'train':
+                length = len(glob(folder + "/train*"))
+                if length == 0:
+                  folder = folder.replace('big', 'gogos')
+                  length = len(glob(folder + "/train*"))
 
-    elif train_or_test == 'train':
-        length = len(glob(folder + "/train*"))
-        if length == 0:
-          folder = folder.replace('big', 'gogos')
-          length = len(glob(folder + "/train*"))
-
-    else:
-        length = 0
+            else:
+                length = 0
 
     return length
 
@@ -554,39 +579,47 @@ def update_image(expe_name, value, completed, range_res, id, slider_num, train_o
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
-    df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
-                                                         "status": True,
-                                                         "host.hostname": True,
-                                                         "experiment.name": True,
-                                                         "info.exp_dir": True,
-                                                         },
-                     include_index=True,
-                     prune=False).sort_values('result')
+    if expe_name is not None:
+        if db.runs.find(filtre).count() > 0:
+            df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
+                                                                 "status": True,
+                                                                 "host.hostname": True,
+                                                                 "experiment.name": True,
+                                                                 "info.exp_dir": True,
+                                                                 },
+                             include_index=True,
+                             prune=False).sort_values('result')
 
-    folder = df[df['_id'] == id]['info.exp_dir'].values[0]
-    if train_or_test == 'test':
-        length = len(glob(folder + "/test*"))
-        list_img = glob(folder+"/test*")
-        if length == 0:
-          folder = folder.replace('big', 'gogos')
-          length = len(glob(folder + "/test*"))
-          list_img = glob(folder+"/test*")
+            folder = df[df['_id'] == id]['info.exp_dir'].values[0]
+            if folder is None:
+                return []
+            if train_or_test == 'test':
+                length = len(glob(folder + "/test*"))
+                list_img = glob(folder+"/test*")
+                if length == 0:
+                  folder = folder.replace('big', 'gogos')
+                  length = len(glob(folder + "/test*"))
+                  list_img = glob(folder+"/test*")
 
 
-    elif train_or_test == 'train':
-        length = len(glob(folder + "/train*"))
-        list_img = glob(folder+"/train*")
-        if length == 0:
-          folder = folder.replace('big', 'gogos')
-          length = len(glob(folder + "/train*"))
-          list_img = glob(folder+"/train*")    
-    else:
-        list_img = []
+            elif train_or_test == 'train':
+                length = len(glob(folder + "/train*"))
+                list_img = glob(folder+"/train*")
+                if length == 0:
+                  folder = folder.replace('big', 'gogos')
+                  length = len(glob(folder + "/train*"))
+                  list_img = glob(folder+"/train*")
+            else:
+                list_img = []
 
-    if len(list_img) > 0:
-        list_img = sorted_nicely(list_img)
-        encoded_image = base64.b64encode(open(list_img[slider_num], 'rb').read()).decode('utf-8').replace('\n', '')
-        return 'data:image/png;base64,{}'.format(encoded_image)
+            if len(list_img) > 0:
+                list_img = sorted_nicely(list_img)
+                encoded_image = base64.b64encode(open(list_img[slider_num], 'rb').read()).decode('utf-8').replace('\n', '')
+                return 'data:image/png;base64,{}'.format(encoded_image)
+            else:
+                return ''
+        else:
+            return ''
     else:
         return ''
 

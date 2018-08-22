@@ -217,6 +217,7 @@ def convert_json_to_nice_dataframe(json_doc, prune=True):
         else:
             raise ValueError('length should not be smaller than tuple length')
 
+
     colnames = [tuple(remove_prefix(c, 'config.').split('.'))
                 for c in result.columns]
     maxlen = max([len(c) for c in colnames])
