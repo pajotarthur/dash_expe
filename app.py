@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
 import dash
 import dash_table_experiments as dt
-import numpy as np
-import pymongo
-
-from bson.objectid import ObjectId
 
 import base64
 from glob import glob
@@ -68,9 +64,10 @@ app.layout = html.Div([
         options=[
             {'label': 'Running', 'value': 'RUNNING'},
             {'label': 'Completed', 'value': 'COMPLETED'},
-            {'label': u'Died', 'value': 'TIMEOUT'},
-            {'label': u'Failed', 'value': 'FAILED'},
-            {'label': 'Interupted', 'value': 'INTERRUPTED'},
+            {'label': 'Died', 'value': 'TIMEOUT'},
+            {'label': 'Failed', 'value': 'FAILED'},
+            {'label': 'Discriminator too small', 'value': 'DIS_TOO_SMALL'},
+            {'label': 'Start Result too small', "value": "START_RESULT_TOO_SMALL"},
         ],
         values=['COMPLETED', 'RUNNING']
     ),
@@ -80,7 +77,7 @@ app.layout = html.Div([
             dcc.Slider(
                 id='range',
                 min=0,
-                max=1,
+                max=5,
                 step=0.01,
                 value=1,
                 marks={
@@ -328,15 +325,14 @@ def update_config_plot(box_value, float_or_box, expe_name, value, completed, ran
     g = dcc.Graph(figure=fig, id='coco_lasticot')
 
     return g
-#
-#
-# # TAB CURVE
 
+
+# # TAB CURVE
 @app.callback(Output('expe_list_curve', 'options'),
               [Input('expe', 'value'),
                Input('database', 'value'),
                Input('checklist', 'values'),
-               Input('range', 'value')])
+               Input("range", 'value')])
 def update_expe_list_curve(expe_name, value, completed, range_res):
     db = client[value]
 
@@ -360,7 +356,8 @@ def update_expe_list_curve(expe_name, value, completed, range_res):
                                  'value': row[1]["_id"]})
 
 
-    return l_retour
+    return sorted(l_retour, key=lambda k: k['label'].split('_')[1])
+
 
 
 @app.callback(Output('metric_list_curve', 'options'),
@@ -506,7 +503,7 @@ def update_expe_list_image(expe_name, value, completed, range_res):
                                  'value': row[1]["_id"]})
 
 
-    return l_retour
+    return sorted(l_retour, key=lambda k: k['label'].split('_')[1])
 
 
 
