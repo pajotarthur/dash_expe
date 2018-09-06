@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-import dash
-import dash_table_experiments as dt
-
 import base64
 from glob import glob
+
+import dash
+import dash_table_experiments as dt
 from dash.dependencies import Input, Output
 
 from db_tools import *
@@ -269,15 +269,21 @@ def update_config_name(expe_name, float_or_box, value, completed, range_res):
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
     l_hyper = []
+    skip_cols = ["config.device", "config.seed", "config.niter", "result"]
+    list_box_not_scatter = ["config.gen.nz", "config.optim_dis.lr", "config.optim_gen.lr", "config.closure.nz"]
     if expe_name is not None:
         if db.runs.find(filtre).count() > 0:
             df = get_results(db.runs, filter_by=filtre, include_index=True)
 
             for i in df.columns:
-                if df[i].dtype == np.bool or df[i].dtype == np.object_ and float_or_box == 'box':
+
+                if i in skip_cols:
+                    continue
+                print(i)
+                if (df[i].dtype == np.bool or df[i].dtype == np.object_ or i in list_box_not_scatter) and float_or_box == 'box':
                     val = i[7:]
                     l_hyper.append({'label': val, 'value': i}, )
-                if (df[i].dtype == np.float or df[i].dtype == np.int) and i is not 'result' and float_or_box == 'scatter':
+                if (df[i].dtype == np.float or df[i].dtype == np.int) and float_or_box == 'scatter':
                     val = i[7:]
                     l_hyper.append({'label': val, 'value': i}, )
 
@@ -309,15 +315,14 @@ def update_config_plot(box_value, float_or_box, expe_name, value, completed, ran
     if db.runs.find(filtre).count() == 0:
       return
     df = get_results(db.runs, filter_by=filtre, include_index=True)
-
     data = []
-
     if box_value is None:
         return "Il n'y a rien a afficher pour l'instant"
 
     if float_or_box == 'scatter':
         fig = float_to_scatter(df, box_value)
     else:
+        df[box_value] = df[box_value].fillna(value='nan')
         df[box_value] = pd.Categorical(df[box_value])
         data += cat_to_boxplot(df, box_value)
 
