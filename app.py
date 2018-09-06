@@ -86,6 +86,9 @@ app.layout = html.Div([
                     0.1: {'label': '0.1', 'style': {'color': '#77b0b1'}},
                     0.25: {'label': '0.25'},
                     0.5: {'label': '0.5'},
+                    1: {'label': '1'},
+                    5: {'label': 'inf'},
+
                 },
 
             )], style={'width': '75%', 'float': 'left', 'display': 'inline-block'}),
@@ -231,7 +234,8 @@ def update_table(expe_name, value, completed, range_res):
     db = client[value]
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
-    filtre['result'] = {'$lt': range_res}
+    if range_res < 5:
+        filtre['result'] = {'$lt': range_res}
 
     if expe_name is not None:
         if db.runs.find(filtre).count() == 0:
@@ -338,7 +342,8 @@ def update_expe_list_curve(expe_name, value, completed, range_res):
 
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
-    filtre['result'] = {'$lt': range_res}
+    if range_res < 5:
+        filtre['result'] = {'$lt': range_res}
     l_retour = []
 
     if expe_name is not None:
@@ -371,7 +376,6 @@ def update_metrics_list_curve(expe_id, expe_name, value, completed, range_res):
     db = client[value]
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
-    filtre['result'] = {'$lt': range_res}
     filtre['_id'] = expe_id
     list_metric_name = []
 
@@ -485,7 +489,8 @@ def update_expe_list_image(expe_name, value, completed, range_res):
 
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
-    filtre['result'] = {'$lt': range_res}
+    if range_res < 5:
+        filtre['result'] = {'$lt': range_res}
     l_retour = []
 
     if expe_name is not None:
@@ -523,7 +528,8 @@ def update_image_slider(expe_name, value, completed, range_res, id, train_or_tes
     db = client[value]
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
-    filtre['result'] = {'$lt': range_res}
+    if range_res < 5:
+        filtre['result'] = {'$lt': range_res}
     length = 0
     if expe_name is not None:
         if db.runs.find(filtre).count() > 0:
@@ -575,7 +581,8 @@ def update_image(expe_name, value, completed, range_res, id, slider_num, train_o
 
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
-    filtre['result'] = {'$lt': range_res}
+    if range_res < 5:
+        filtre['result'] = {'$lt': range_res}
     if expe_name is not None:
         if db.runs.find(filtre).count() > 0:
             df = get_results(db.runs, filter_by=filtre, project={'start_time': True,
