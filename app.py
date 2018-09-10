@@ -428,7 +428,8 @@ def get_run_log(expe_id, expe_name, value, completed, range_res):
                 v = kk['values']
             df_dict[n] = v
             df_dict['step'] = kk['steps']
-        run_log_df = pd.DataFrame(df_dict)
+        run_log_df = pd.DataFrame.from_dict(df_dict, orient='index')
+        run_log_df = run_log_df.transpose()
         try:
             json = run_log_df.to_json(orient='split')
         except FileNotFoundError as error:
