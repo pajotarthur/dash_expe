@@ -1,23 +1,19 @@
 # coding=utf-8
 
+import os
+import tempfile
+from datetime import datetime, timedelta
+
+import gridfs
+import numpy as np
+import pandas as pd
+import plotly.graph_objs as go
 import pymongo
 import pymongo.database
 import pymongo.mongo_client
-from bson.objectid import ObjectId
-
-import gridfs
-
-import plotly.graph_objs as go
-
-
-import numpy as np
-import pandas as pd
-from pandas.io.json import json_normalize
 from IPython.display import HTML
-from datetime import datetime, timedelta
-
-import os
-import tempfile
+from bson.objectid import ObjectId
+from pandas.io.json import json_normalize
 
 # Pretty Pandas Dataframes
 PANDAS_STYLE = HTML("""<style>
@@ -254,7 +250,7 @@ def get_results(collection, filter_by=None, project=None, custom_cols=None, sort
 
     # get the results from the database
     all_results = []
-    for r in collection.find(filter_by, projection=project_dict):
+    for r in collection.find(filter_by):
         run_summary = {k: get_by_dotted_path(r, k) for k, v in project_dict.items() if v}
         run_summary.update({k: v(r) for k, v in custom_cols.items()})
         all_results.append(run_summary)

@@ -240,18 +240,40 @@ def update_table(expe_name, value, completed, range_res):
     if expe_name is not None:
         if db.runs.find(filtre).count() == 0:
             df = pd.DataFrame({'_id': [00], 'result': [10000], 'start_time': ['2018-07-02 09:58:15.077000'], 'status': ['FAILED'], 'experiment.name': ['NO EXPERIMENT'], 'host.hostname': ['NONE']})
+
             return df.to_dict('records')
+
+        # meters/loss_masked_MSE/test
+
+        def get_metric(x, metrics_name, db):
+            retour = 10000
+            if "info" in x:
+
+                metrics = x["info"]["metrics"]
+                df_dict = {}
+                for k in metrics:
+                    for kk in db.metrics.find({'_id': ObjectId(k['id']), "name": metrics_name}):
+                        retour = np.min(kk["values"])
+
+            return retour
+
+        custom_cols = {
+        'min_masked_mse': lambda x: get_metric(x, "meters/loss_masked_MSE/test", db),
+        'min_masked_std': lambda x: get_metric(x, "meters/loss_masked_std/test", db),
+        }
 
         df = get_results(db.runs, project={'start_time': True,
                                            "status": True,
                                            "host.hostname": True,
                                            "experiment.name": True
                                            },
-                         filter_by=filtre, include_index=True, prune=False)
+                         filter_by=filtre, include_index=True, prune=False, custom_cols=custom_cols)
     else:
         df = pd.DataFrame({'A' : []})
 
     return df.to_dict('records')
+
+
 
 #
 # TAB HYPERPARAMATERS
@@ -279,7 +301,6 @@ def update_config_name(expe_name, float_or_box, value, completed, range_res):
 
                 if i in skip_cols:
                     continue
-                print(i)
                 if (df[i].dtype == np.bool or df[i].dtype == np.object_ or i in list_box_not_scatter) and float_or_box == 'box':
                     val = i[7:]
                     l_hyper.append({'label': val, 'value': i}, )
@@ -415,7 +436,7 @@ def get_run_log(expe_id, expe_name, value, completed, range_res):
     json = ''
     if expe_name is not None:
         if db.runs.find(filtre).count() == 0:
-          return
+            return
 
         for l in db.runs.find(filtre):
             metrics = l['info']['metrics']

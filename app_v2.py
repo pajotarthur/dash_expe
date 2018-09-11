@@ -1,13 +1,10 @@
-import dash
-import base64
-from glob import glob
 import copy
+
+import dash
+from dash.dependencies import Input, Output
 
 from db_tools import *
 from utils import *
-
-from dash.dependencies import Input, Output, State
-
 
 client = pymongo.MongoClient('drunk:27017')
 app = dash.Dash()
@@ -102,7 +99,7 @@ def serve_layout():
             style={'margin-top': '20'}
         ),
 
-    ],
+    ]
     className='ten columns offset-by-one'
 
     )
