@@ -86,7 +86,8 @@ def cat_to_boxplot(df, cat):
             trace = go.Box(
                 y=y,
                 name = str(cat)+"_"+str(tick),
-                boxmean = True,
+                boxmean = 'sd',
+                boxpoints='all',
             )
             l_trace.append(trace)
         return l_trace

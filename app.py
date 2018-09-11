@@ -280,19 +280,18 @@ def update_table(expe_name, value, completed, range_res):
 @app.callback(Output('config', 'options'),
               [
                   Input('expe', 'value'),
-                  Input('float_or_box', 'value'),
                   Input('database', 'value'),
                   Input('checklist', 'values'),
                   Input('range', 'value'),
               ])
-def update_config_name(expe_name, float_or_box, value, completed, range_res):
+def update_config_name(expe_name, value, completed, range_res):
     db = client[value]
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
     filtre['result'] = {'$lt': range_res}
     l_hyper = []
     skip_cols = ["config.device", "config.seed", "config.niter", "result"]
-    list_box_not_scatter = ["config.gen.nz", "config.optim_dis.lr", "config.optim_gen.lr", "config.closure.nz"]
+
     if expe_name is not None:
         if db.runs.find(filtre).count() > 0:
             df = get_results(db.runs, filter_by=filtre, include_index=True)
@@ -301,18 +300,12 @@ def update_config_name(expe_name, float_or_box, value, completed, range_res):
 
                 if i in skip_cols:
                     continue
-                if (df[i].dtype == np.bool or df[i].dtype == np.object_ or i in list_box_not_scatter) and float_or_box == 'box':
-                    val = i[7:]
-                    l_hyper.append({'label': val, 'value': i}, )
-                if (df[i].dtype == np.float or df[i].dtype == np.int) and float_or_box == 'scatter':
-                    val = i[7:]
-                    l_hyper.append({'label': val, 'value': i}, )
+                val = i[7:]
+                l_hyper.append({'label': val, 'value': i}, )
 
     if len(l_hyper) == 0:
-        if float_or_box == 'box':
-            l_hyper.append({'label': 'pas de box', value: 0})
-        if float_or_box == 'scatter':
-            l_hyper.append({'label': 'pas de scatter', value: 0})
+        l_hyper.append({'label': 'pas de hyper', value: 0})
+
     return l_hyper
 
 
@@ -656,4 +649,4 @@ def update_image(expe_name, value, completed, range_res, id, slider_num, train_o
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
