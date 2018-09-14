@@ -66,6 +66,7 @@ app.layout = html.Div([
             {'label': 'Completed', 'value': 'COMPLETED'},
             {'label': 'Died', 'value': 'TIMEOUT'},
             {'label': 'Failed', 'value': 'FAILED'},
+            {'label': 'Interrupted', 'value': 'INTERRUPTED'},
             {'label': 'Discriminator too small', 'value': 'DIS_TOO_SMALL'},
             {'label': 'Start Result too small', "value": "START_RESULT_TOO_SMALL"},
         ],
@@ -649,4 +650,4 @@ def update_image(expe_name, value, completed, range_res, id, slider_num, train_o
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
