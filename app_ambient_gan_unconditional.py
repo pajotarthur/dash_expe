@@ -267,7 +267,7 @@ def update_table(expe_name, value, completed, range_res):
                                            "status": True,
                                            "host.hostname": True,
                                            "experiment.name": True,
-                                           "info.expe_dir": True,
+                                           "info.exp_dir": True,
                                            },
                          filter_by=filtre, include_index=True, prune=False)#, custom_cols=custom_cols)
     else:
