@@ -256,12 +256,25 @@ def update_table(expe_name, value, completed, range_res):
                     for kk in db.metrics.find({'_id': ObjectId(k['id']), "name": metrics_name}):
                         retour = np.min(kk["values"])
 
-            return retour
+            return retour, len(kk["values"])
+
+        def get_max_epoch(x, metrics_name, db):
+            retour = 10000
+            if "info" in x:
+
+                metrics = x["info"]["metrics"]
+                df_dict = {}
+                for k in metrics:
+                    for kk in db.metrics.find({'_id': ObjectId(k['id']), "name": metrics_name}):
+                        retour = np.min(kk["values"])
+
+            return len(kk["values"])
 
         custom_cols = {
-        'min_masked_mse': lambda x: get_metric(x, "meters/loss_masked_MSE/test", db),
-        'min_masked_std': lambda x: get_metric(x, "meters/loss_masked_std/test", db),
+            'max_epoch': lambda x: get_max_epoch(x, "meters/loss_dis/train", db), 
         }
+        # 'min_masked_mse': lambda x: get_metric(x, "meters/loss_masked_MSE/test", db),
+        # 'min_masked_std': lambda x: get_metric(x, "meters/loss_masked_std/test", db),
 
         df = get_results(db.runs, project={'start_time': True,
                                            "status": True,
@@ -269,7 +282,7 @@ def update_table(expe_name, value, completed, range_res):
                                            "experiment.name": True,
                                            "info.exp_dir": True,
                                            },
-                         filter_by=filtre, include_index=True, prune=False)#, custom_cols=custom_cols)
+                         filter_by=filtre, include_index=True, prune=False, custom_cols=custom_cols)
     else:
         df = pd.DataFrame({'A' : []})
 
