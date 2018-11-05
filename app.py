@@ -246,22 +246,24 @@ def update_table(expe_name, value, completed, range_res):
 
         # meters/loss_masked_MSE/test
 
-        def get_metric(x, metrics_name, db):
-            retour = 10000
-            if "info" in x:
+        # def get_metric(x, metrics_name, db):
+        #     retour = 10000
+        #     if "info" in x:
+        #
+        #         metrics = x["info"]["metrics"]
+        #         df_dict = {}
+        #         for k in metrics:
+        #             for kk in db.metrics.find({'_id': ObjectId(k['id']), "name": metrics_name}):
+        #                 retour = np.min(kk["values"])
+        #
+        #     return retour
+        #
+        # custom_cols = {
+        # 'min_masked_mse': lambda x: get_metric(x, "meters/loss_masked_MSE/test", db),
+        # 'min_masked_std': lambda x: get_metric(x, "meters/loss_masked_std/test", db),
+        # }
 
-                metrics = x["info"]["metrics"]
-                df_dict = {}
-                for k in metrics:
-                    for kk in db.metrics.find({'_id': ObjectId(k['id']), "name": metrics_name}):
-                        retour = np.min(kk["values"])
-
-            return retour
-
-        custom_cols = {
-        'min_masked_mse': lambda x: get_metric(x, "meters/loss_masked_MSE/test", db),
-        'min_masked_std': lambda x: get_metric(x, "meters/loss_masked_std/test", db),
-        }
+        custom_cols = {}
 
         df = get_results(db.runs, project={'start_time': True,
                                            "status": True,
@@ -410,7 +412,6 @@ def update_metrics_list_curve(expe_id, expe_name, value, completed, range_res):
             list_metric_name = np.unique(list_metric_name)
         else:
             list_metric_name = ['no metrics']
-
     return [{'label': i, 'value':i} for i in list_metric_name]
 
 
@@ -425,9 +426,9 @@ def get_run_log(expe_id, expe_name, value, completed, range_res):
     db = client[value]
     filtre = {'experiment.name': {'$in': expe_name}}
     filtre['status'] = {'$in': completed}
-    filtre['result'] = {'$lt': range_res}
     filtre['_id'] = expe_id
     json = ''
+    print(filtre)
     if expe_name is not None:
         if db.runs.find(filtre).count() == 0:
             return
@@ -437,12 +438,14 @@ def get_run_log(expe_id, expe_name, value, completed, range_res):
 
 
         df_dict = {}
+        print(metrics)
         for i in metrics:
             n = i['name']
             for kk in db.metrics.find({'_id': ObjectId(i['id'])}):
                 v = kk['values']
             df_dict[n] = v
             df_dict['step'] = kk['steps']
+            print(df_dict)
         run_log_df = pd.DataFrame.from_dict(df_dict, orient='index')
         run_log_df = run_log_df.transpose()
         try:
